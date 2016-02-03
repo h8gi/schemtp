@@ -6,8 +6,9 @@ chicken scheme smtp client
 
 ### make-smtp
 
-`(make-smtp <address> [<port>]) => <smtp>`   
-make new smtp object. the default port is 25.
+`(make-smtp <address> [<port>] [<tls>]) => <smtp>`   
+make new smtp object. the default port is 25.  
+to use gmail, `(make-smtp "smgp.gmail.com" 465 #t)`.  
 
 ### set-sender!
 `(set-sender! <smtp> <address>)`  
@@ -90,7 +91,7 @@ enable debug mode.
 ~~~~~
 
 ## non supported method
-auth  
+auth except plain.
 
 =======
 

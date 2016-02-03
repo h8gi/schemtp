@@ -14,22 +14,35 @@
    [header      #:initform (make-hash-table)
                 #:accessor header-of]
    [methods     #:initform #f
-                #:accessor methods-of]))
+                #:accessor methods-of]
+   [in          #:accessor in-of]
+   [out         #:accessor out-of]))
 
-(define (make-smtp host #!optional (port (service-name->port "smtp" "tcp")))
+(define (make-smtp host
+                   #!optional (port (service-name->port "smtp" "tcp")) (tls #f))
   (let ([smtp (make <smtp>)]
         [sockaddr (inet-address (hostname->ip-string host)
                                 port)])
-    (socket-connect (sock-of smtp) sockaddr)
+    (if tls
+        (receive (i o) (ssl-connect host port)
+          (set! (in-of smtp) i)
+          (set! (out-of smtp) o)
+          (when (debug)
+            (display (conc "connect: " (hostname->ip-string host) ":" port "\n")
+                     (current-error-port))))
+        (begin
+          (socket-connect (sock-of smtp) sockaddr)        
+          (when (debug)
+            (display (conc "connect:" (sockaddr->string (socket-peer-name (sock-of smtp))) "\n")
+                     (current-error-port)))
+          (receive (in out) (socket-i/o-ports (sock-of smtp))
+            (set! (in-of smtp) in)
+            (set! (out-of smtp) out))))
     (set! (host-of smtp) host)
-    (when (debug)
-      (display (conc "connect:" (sockaddr->string (socket-peer-name (sock-of smtp))) "\n")
-               (current-error-port)))
-    (receive (in out) (socket-i/o-ports (sock-of smtp))
-      (consume-line in)
-      (send-line "EHLO localhost" out)
-      (consume-line in)
-      (set! (methods-of smtp) (get-methods in)))
+    (consume-line (in-of smtp))
+    (send-line "EHLO localhost" (out-of smtp))
+    (consume-line (in-of smtp))
+    (set! (methods-of smtp) (get-methods (in-of smtp)))
     smtp))
 
 (define-method (update-header! (smtp <smtp>) (key <symbol>) (value <string>)) ;export
@@ -70,47 +83,49 @@
 (define-method (show-methods (smtp <smtp>)) ;export
   (for-each pp (methods-of smtp)))
 (define-method (auth-plain! (smtp <smtp>) (address <string>) (password <string>)) ;export
-  (receive (in out) (socket-i/o-ports (sock-of smtp))
+  (receive (in out) (values (in-of smtp) (out-of smtp))
     (send-line
      (with-input-from-string (conc address "\x00" address "\x00" password)
        (lambda () (conc "AUTH PLAIN " (base64-encode (current-input-port))))) out)
     (consume-line in)))
 ;;; MAIL
 (define-method (set-sender! (smtp <smtp>) sender) ;export
-  (receive (in out) (socket-i/o-ports (sock-of smtp))
+  (receive (in out) (values (in-of smtp) (out-of smtp))
     (set! (sender-of smtp) sender)
     (reset-header! smtp)               ;update header
-    (send-line (conc "MAIL FROM:" sender) out)
+    (send-line (conc "MAIL FROM:<" sender ">") out)
     (consume-line in)))
 ;;; RCPT
 (define-method (add-receivers! (smtp <smtp>) (receiver <string>)) ;export
-  (receive (in out) (socket-i/o-ports (sock-of smtp))
+  (receive (in out) (values (in-of smtp) (out-of smtp))
     (set! (receivers-of smtp) (cons receiver (receivers-of smtp)))
     (reset-header! smtp)               ;update header
-    (send-line (conc "RCPT TO:" receiver) out)
+    (send-line (conc "RCPT TO:<" receiver ">") out)
     (consume-line in)))
 (define-method (add-receivers! (smtp <smtp>) (receivers <list>))
   (for-each (cut add-receivers! smtp <>) receivers))
 ;;; DATA
 (define-method (data! (smtp <smtp>))    ;export
-  (receive (in out) (socket-i/o-ports (sock-of smtp))
+  (receive (in out) (values (in-of smtp) (out-of smtp))
     (send-line "DATA" out)
     (consume-line in)))
 (define-method (header-send! (smtp <smtp>)) ;export
-  (receive (in out) (socket-i/o-ports (sock-of smtp))
+  (receive (in out) (values (in-of smtp) (out-of smtp))
     (send-line (header->string (header-of smtp)) out)))
 (define-method (data-send! (smtp <smtp>) (str <string>)) ;export
-  (receive (in out) (socket-i/o-ports (sock-of smtp))
+  (receive (in out) (values (in-of smtp) (out-of smtp))
     (send-line str out)))
 (define-method (data-end! (smtp <smtp>)) ;export
-  (receive (in out) (socket-i/o-ports (sock-of smtp))
+  (receive (in out) (values (in-of smtp) (out-of smtp))
     (send-line "." out)
     (consume-line in)))
 ;;; QUIT
 (define-method (quit! (smtp <smtp>))    ;export
-  (receive (in out) (socket-i/o-ports (sock-of smtp))
+  (receive (in out) (values (in-of smtp) (out-of smtp))
     (send-line "QUIT" out)
     (consume-line in))
+  (close-input-port (in-of smtp))
+  (close-output-port (out-of smtp))
   (socket-close (sock-of smtp)))
 
 ;;; misc
@@ -132,7 +147,7 @@
 (define (send-line line out)
   (when (debug)
     (display (conc "> " line "\n") (current-error-port)))
-  (display (conc line "\n") out))
+  (display (conc line "\r\n") out))
 (define (hostname->ip-string hostname)
   (let ([iaddr-vector (hostname->ip hostname)])
     (if iaddr-vector
