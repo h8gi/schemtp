@@ -34,7 +34,7 @@
 (define-method (update-header! (key <symbol>) (value <string>) (smtp <smtp>)) ;export
   (hash-table-set! (header-of smtp) key value))
 
-(define-method (update-header! (smtp <smtp>))
+(define-method (reset-header! (smtp <smtp>))
   (define (capitalize str)
     (irregex-replace "^." (string-downcase str)
                      (lambda (m)
@@ -72,14 +72,14 @@
 (define-method (set-sender! (smtp <smtp>) sender) ;export
   (receive (in out) (socket-i/o-ports (sock-of smtp))
     (set! (sender-of smtp) sender)
-    (update-header! smtp)               ;update header
+    (reset-header! smtp)               ;update header
     (send-line (conc "MAIL FROM:" sender) out)
     (consume-line in)))
 ;;; RCPT
 (define-method (add-receivers! (smtp <smtp>) (receiver <string>)) ;export
   (receive (in out) (socket-i/o-ports (sock-of smtp))
     (set! (receivers-of smtp) (cons receiver (receivers-of smtp)))
-    (update-header! smtp)               ;update header
+    (reset-header! smtp)               ;update header
     (send-line (conc "RCPT TO:" receiver) out)
     (consume-line in)))
 (define-method (add-receivers! (smtp <smtp>) (receivers <list>))
