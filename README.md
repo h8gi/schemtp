@@ -40,6 +40,10 @@ end data method.
 `(quit! smtp)`  
 quit smtp process.
 
+### show-header
+
+### show-methods
+
 ### debug
 `(debug <boolean>)`  
 enable debug mode.

@@ -12,7 +12,9 @@
    [sock        #:initform (socket af/inet sock/stream)
                 #:accessor sock-of]
    [header      #:initform (make-hash-table)
-                #:accessor header-of]))
+                #:accessor header-of]
+   [methods     #:initform #f
+                #:accessor methods-of]))
 
 (define (make-smtp host)
   (let ([smtp (make <smtp>)]
@@ -26,7 +28,7 @@
     (receive (in out) (socket-i/o-ports (sock-of smtp))
       (consume-line in)
       (send-line "EHLO localhost" out)
-      (consume-line in))
+      (set! (methods-of smtp) (get-methods in)))
     smtp))
 
 (define-method (update-header! (key <symbol>) (value <string>) (smtp <smtp>)) ;export
@@ -64,6 +66,8 @@
    "\n"))
 (define-method (show-header (smtp <smtp>)) ;export
   (display (header->string (header-of smtp))))
+(define-method (show-methods (smtp <smtp>))
+  (for-each pp (methods-of smtp)))
 ;;; MAIL
 (define-method (set-sender! (smtp <smtp>) sender) ;export
   (receive (in out) (socket-i/o-ports (sock-of smtp))
@@ -109,6 +113,15 @@
     (when (debug)
       (display (conc "< " line "\n") (current-error-port)))
     (string->number (string-take line 3))))
+(define (get-methods in)
+  (let loop ([line (read-line in)]
+             [methods '()])
+    (when (debug)
+      (display (conc "< " line "\n") (current-error-port)))
+    (cond [(irregex-search '(: (= 3 digit) "-") line)
+           (loop (read-line in) (cons (string-drop line 4) methods))]
+          [else (cons (string-drop line 4) methods)])))
+
 (define (send-line line out)
   (when (debug)
     (display (conc "> " line "\n") (current-error-port)))
