@@ -17,10 +17,10 @@
    [out         #:accessor out-of]))
 
 (define (make-smtp host
-                   #!optional (port (service-name->port "smtp" "tcp")) (ssl #f))
+                   #!optional (port (service-name->port "smtp" "tcp")) (tls #f))
   (let ([smtp (make <smtp>)])
-    (receive (i o) (if ssl
-                       (ssl-connect host port)
+    (receive (i o) (if tls
+                       (ssl-connect host port 'tlsv1)
                        (tcp-connect host port))
       (set! (in-of smtp) i)
       (set! (out-of smtp) o)
