@@ -2,7 +2,7 @@
     (make-smtp debug set-sender! add-receivers! update-header! show-header show-methods
                data! header-send! data-send! data-end! quit!)
   (import scheme chicken extras posix
-          irregex utf8-srfi-13 srfi-4 srfi-13 srfi-69)
-  (use coops socket hostinfo utf8 coops-primitive-objects coops-utils srfi-19)
+          irregex utf8-srfi-13 srfi-4 srfi-13 srfi-69 coops  coops-utils)
+  (use utf8 coops-primitive-objects  srfi-19 socket hostinfo)
   (include "main.scm")
   )
