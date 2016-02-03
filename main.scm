@@ -9,8 +9,6 @@
                 #:accessor receivers-of]
    [data        #:initform ""
                 #:accessor data-of]
-   [sock        #:initform (socket af/inet sock/stream)
-                #:accessor sock-of]
    [header      #:initform (make-hash-table)
                 #:accessor header-of]
    [methods     #:initform #f
@@ -20,24 +18,15 @@
 
 (define (make-smtp host
                    #!optional (port (service-name->port "smtp" "tcp")) (tls #f))
-  (let ([smtp (make <smtp>)]
-        [sockaddr (inet-address (hostname->ip-string host)
-                                port)])
-    (if tls
-        (receive (i o) (ssl-connect host port)
-          (set! (in-of smtp) i)
-          (set! (out-of smtp) o)
-          (when (debug)
-            (display (conc "connect: " (hostname->ip-string host) ":" port "\n")
-                     (current-error-port))))
-        (begin
-          (socket-connect (sock-of smtp) sockaddr)        
-          (when (debug)
-            (display (conc "connect:" (sockaddr->string (socket-peer-name (sock-of smtp))) "\n")
-                     (current-error-port)))
-          (receive (in out) (socket-i/o-ports (sock-of smtp))
-            (set! (in-of smtp) in)
-            (set! (out-of smtp) out))))
+  (let ([smtp (make <smtp>)])
+    (receive (i o) (if tls
+                       (ssl-connect host port)
+                       (tcp-connect host port))
+      (set! (in-of smtp) i)
+      (set! (out-of smtp) o)
+      (when (debug)
+        (display (conc "connect: " (hostname->ip-string host) ":" port "\n")
+                 (current-error-port))))
     (set! (host-of smtp) host)
     (consume-line (in-of smtp))
     (send-line "EHLO localhost" (out-of smtp))
@@ -126,8 +115,7 @@
     (send-line "QUIT" out)
     (consume-line in))
   (close-input-port (in-of smtp))
-  (close-output-port (out-of smtp))
-  (socket-close (sock-of smtp)))
+  (close-output-port (out-of smtp)))
 
 ;;; misc
 (define debug (make-parameter #f))      ;export
