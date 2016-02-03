@@ -118,7 +118,7 @@
     (send-line str out)))
 (define-method (data-end! (smtp <smtp>)) ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
-    (send-line "." out)
+    (send-line "\r\n." out)
     (consume-line in)))
 ;;; QUIT
 (define-method (quit! (smtp <smtp>))    ;export
