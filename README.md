@@ -5,6 +5,7 @@ chicken scheme smtp client
 ## usage
 
 ### make-smtp
+
 `(make-smtp <address> [<port>]) => <smtp>`   
 make new smtp object. the default port is 25.
 
