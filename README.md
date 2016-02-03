@@ -5,8 +5,8 @@ chicken scheme smtp client
 ## usage
 
 ### make-smtp
-`(make-smtp "smtp.example.com") => <smtp>`   
-make new smtp object.
+`(make-smtp <address> [<port>]) => <smtp>`   
+make new smtp object. the default port is 25.
 
 ### set-sender!
 `(set-sender! <smtp> <address>)`  
@@ -19,6 +19,9 @@ set sender of smtp object.
 ### update-header!
 `(update-header! <smtp> <symbol> <string>)`  
 you can send this header by `header-send!`.
+
+## auth-plain!
+`(auth-plain! <smtp> address password)`  
 
 ### data!
 `(data! <smtp>)`  

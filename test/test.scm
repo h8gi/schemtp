@@ -11,7 +11,8 @@
                        (random 100) "\n"
                        "こんにちは\n"))
 (debug #t)
-(define smtp (make-smtp host))
+(define smtp (make-smtp host 587))
+(auth-plain! smtp sender "password")
 ;;; 送信者
 (set-sender! smtp sender)
 ;;; 受信者

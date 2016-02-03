@@ -16,10 +16,10 @@
    [methods     #:initform #f
                 #:accessor methods-of]))
 
-(define (make-smtp host)
+(define (make-smtp host #!optional (port (service-name->port "smtp" "tcp")))
   (let ([smtp (make <smtp>)]
         [sockaddr (inet-address (hostname->ip-string host)
-                                (service-name->port "smtp" "tcp"))])
+                                port)])
     (socket-connect (sock-of smtp) sockaddr)
     (set! (host-of smtp) host)
     (when (debug)
@@ -67,8 +67,14 @@
    "\n"))
 (define-method (show-header (smtp <smtp>)) ;export
   (display (header->string (header-of smtp))))
-(define-method (show-methods (smtp <smtp>))
+(define-method (show-methods (smtp <smtp>)) ;export
   (for-each pp (methods-of smtp)))
+(define-method (auth-plain! (smtp <smtp>) (address <string>) (password <string>)) ;export
+  (receive (in out) (socket-i/o-ports (sock-of smtp))
+    (send-line
+     (with-input-from-string (conc address "\x00" address "\x00" password)
+       (lambda () (conc "AUTH PLAIN " (base64-encode (current-input-port))))) out)
+    (consume-line in)))
 ;;; MAIL
 (define-method (set-sender! (smtp <smtp>) sender) ;export
   (receive (in out) (socket-i/o-ports (sock-of smtp))
