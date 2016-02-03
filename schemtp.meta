@@ -2,5 +2,5 @@
 ((author "yagihiroki")
  (synopsis "schemtp")
  (license "GPLv3")
- (needs coops coops-utils coops-primitive-objects coops-utils srfi-19)
+ (depends coops coops-utils coops-utils srfi-19)
  (files "main.scm" "schemtp.scm" "schemtp.setup" "schemtp.meta"))
