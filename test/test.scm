@@ -12,6 +12,7 @@
                        "こんにちは\n"))
 (debug #t)
 (define smtp (make-smtp host 587))
+;;; auth
 (auth-plain! smtp sender "password")
 ;;; 送信者
 (set-sender! smtp sender)
