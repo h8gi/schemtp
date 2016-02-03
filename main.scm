@@ -28,6 +28,7 @@
     (receive (in out) (socket-i/o-ports (sock-of smtp))
       (consume-line in)
       (send-line "EHLO localhost" out)
+      (consume-line in)
       (set! (methods-of smtp) (get-methods in)))
     smtp))
 
