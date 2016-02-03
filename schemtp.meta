@@ -1,0 +1,5 @@
+;;; schemtp.meta
+((author "yagihiroki")
+ (synopsis "schemtp")
+ (license "GPLv3")
+ (files "main.scm" "schemtp.scm" "schemtp.setup" "schemtp.meta"))

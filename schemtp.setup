@@ -1,0 +1,12 @@
+;;; schemtp.setup
+
+;;; コンパイル
+(compile -s -O3 -d1 "schemtp.scm" -j schemtp)
+(compile -s -O3 -d0 "schemtp.import.scm")
+
+;;; インストール
+(install-extension
+ 'schemtp
+ '("schemtp.so" "schemtp.import.so")
+ '((version 1.0)))
+ 
