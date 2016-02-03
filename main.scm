@@ -31,7 +31,7 @@
       (set! (methods-of smtp) (get-methods in)))
     smtp))
 
-(define-method (update-header! (key <symbol>) (value <string>) (smtp <smtp>)) ;export
+(define-method (update-header! (smtp <smtp>) (key <symbol>) (value <string>)) ;export
   (hash-table-set! (header-of smtp) key value))
 
 (define-method (reset-header! (smtp <smtp>))
