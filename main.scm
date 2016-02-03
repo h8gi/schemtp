@@ -67,7 +67,8 @@
     (update-header! smtp 'From
                     (sender-of smtp))
     (update-header! smtp 'To
-                    (string-join (receivers-of smtp) ","))))
+                    (string-join (receivers-of smtp) ","))
+    (update-header! smtp 'Content-Type "text/plain; charset=\"UTF-8\"")))
 
 
 (define-method (header->string (header <hash-table>))
