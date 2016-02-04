@@ -40,20 +40,20 @@ you can send this header by `header-send!`.
 ## auth-plain
 `(auth-plain! <smtp> address password)`  
 
-### data
-`(data! <smtp>)`  
+### start-data
+`(start-data <smtp>)`  
 start data method. 
 
-### header-send
-`(header-send! smtp)`  
+### send-data-header
+`(send-data-header smtp)`  
 use after `data!`.
 
-### data-send
-`(data-send! smtp <string>)`  
+### send-data-body
+`(send-data-body smtp <string>)`  
 use after `header-send!`.
 
-### data-end
-`(data-end! <smtp>)`  
+### end-data
+`(end-data <smtp>)`  
 end data method.
 
 ### quit-session
@@ -64,8 +64,8 @@ quit smtp process.
 
 ### show-methods
 
-### debug
-`(debug <boolean>)`  
+### smtp-debug
+`(smtp-debug <boolean>)`  
 enable debug mode.
 
 ## example
