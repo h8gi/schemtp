@@ -14,7 +14,8 @@
    [methods     #:initform #f
                 #:accessor methods-of]
    [in          #:accessor in-of]
-   [out         #:accessor out-of]))
+   [out         #:accessor out-of]
+   [tls         #:accessor tls?]))
 
 (define (make-smtp host
                    #!optional (port (service-name->port "smtp" "tcp")) (tls #f))
@@ -22,19 +23,19 @@
     (receive (i o) (if tls
                        (ssl-connect host port 'tlsv1)
                        (tcp-connect host port))
+      (set! (tls? smtp) tls)      
       (set! (in-of smtp) i)
       (set! (out-of smtp) o)
       (when (debug)
         (display (conc "connect: " (hostname->ip-string host) ":" port "\n")
                  (current-error-port))))
     (set! (host-of smtp) host)
-    (consume-line (in-of smtp))
+    (consume-lines (in-of smtp))
     (send-line "EHLO localhost" (out-of smtp))
-    (consume-line (in-of smtp))
     (set! (methods-of smtp) (get-methods (in-of smtp)))
     smtp))
 
-(define-method (update-header! (smtp <smtp>) (key <symbol>) (value <string>)) ;export
+(define-method (set-header! (smtp <smtp>) (key <symbol>) (value <string>)) ;export
   (hash-table-set! (header-of smtp) key value))
 
 (define-method (reset-header! (smtp <smtp>))
@@ -43,15 +44,15 @@
                      (lambda (m)
                        (string-upcase (irregex-match-substring m)))))
   (let ([date (time->date (current-time))])
-    (update-header! smtp 'Date
+    (set-header! smtp 'Date
                     (conc (capitalize (format-date "~a, ~d " date))
                           (capitalize (format-date "~b " date))
                           (format-date "~Y " date)
                           (irregex-replace "\\+" (format-date "~2" date) " +")))
-    (update-header! smtp 'Message-ID
+    (set-header! smtp 'Message-ID
                     (conc (date-year date)  "-" (date-second date) "-" (date-nanosecond date)
                           "@" (host-of smtp)))    
-    (update-header! smtp 'Content-Type "text/plain; charset=\"UTF-8\"")))
+    (set-header! smtp 'Content-Type "text/plain; charset=\"UTF-8\"")))
 
 
 (define-method (header->string (header <hash-table>))
@@ -71,68 +72,69 @@
     (send-line
      (with-input-from-string (conc address "\x00" address "\x00" password)
        (lambda () (conc "AUTH PLAIN " (base64-encode (current-input-port))))) out)
-    (consume-line in)))
+    (consume-lines in)))
 ;;; MAIL
 (define-method (set-sender! (smtp <smtp>) sender #!optional (name "")) ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
-    (set! (sender-of smtp) (conc name "<" sender ">"))
-    (update-header! smtp 'Sender (sender-of smtp))
-    (update-header! smtp 'From   (sender-of smtp))
-    (send-line (conc "MAIL FROM:" (sender-of smtp)) out)
-    (consume-line in)))
+    (set! (sender-of smtp) sender)
+    (set-header! smtp 'Sender (conc name "<" sender ">"))
+    (set-header! smtp 'From   (conc name "<" sender ">"))
+    (send-line (conc "MAIL FROM:<" (sender-of smtp) ">") out)
+    (consume-lines in)))
 ;;; RCPT
 (define-method (add-receivers! (smtp <smtp>) (receiver <string>)) ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
     (set! (receivers-of smtp) (cons receiver (receivers-of smtp)))
-    (update-header! smtp 'To (string-join (receivers-of smtp) ","))
+    (set-header! smtp 'To (string-join (receivers-of smtp) ","))
     (send-line (conc "RCPT TO:<" receiver ">") out)
-    (consume-line in)))
+    (consume-lines in)))
 (define-method (add-receivers! (smtp <smtp>) (receivers <list>))
   (for-each (cut add-receivers! smtp <>) receivers))
 ;;; DATA
 (define-method (data! (smtp <smtp>))    ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
     (send-line "DATA" out)
-    (consume-line in)))
-(define-method (header-send! (smtp <smtp>)) ;export
+    (consume-lines in)))
+(define-method (send-header! (smtp <smtp>)) ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
     (reset-header! smtp)
     (send-line (header->string (header-of smtp)) out)))
-(define-method (data-send! (smtp <smtp>) (str <string>)) ;export
+(define-method (send-data! (smtp <smtp>) (str <string>)) ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
     (send-line str out)))
-(define-method (data-end! (smtp <smtp>)) ;export
+(define-method (end-data! (smtp <smtp>)) ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
-    (send-line "\r\n." out)
-    (consume-line in)))
+    (send-line "." out)
+    (consume-lines in)))
 ;;; QUIT
 (define-method (quit! (smtp <smtp>))    ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
     (send-line "QUIT" out)
-    (consume-line in))
+    (consume-lines in))
   (close-input-port (in-of smtp))
   (close-output-port (out-of smtp)))
 
 ;;; misc
 (define debug (make-parameter #f))      ;export
-(define (consume-line in)
-  (let ([line (read-line in)])
-    (when (debug)
-      (display (conc "< " line "\n") (current-error-port)))
-    (string->number (string-take line 3))))
 (define (get-methods in)
   (let loop ([line (read-line in)]
              [methods '()])
     (when (debug)
-      (display (conc "< " line "\n") (current-error-port)))
+      (display (conc "S< " line "\n") (current-error-port)))
     (cond [(irregex-search '(: (= 3 digit) "-") line)
            (loop (read-line in) (cons (string-drop line 4) methods))]
           [else (cons (string-drop line 4) methods)])))
-
+(define (consume-lines in)
+  (let loop ([line (read-line in)])
+    (when (debug)
+      (display (conc "S< " line "\n") (current-error-port)))
+    (cond [(irregex-search '(: (= 3 digit) "-") line)
+           (loop (read-line in))]
+          [else (string->number (string-take line 3))])))
 
 (define (send-line line out)
   (when (debug)
-    (display (conc "> " line "\n") (current-error-port)))
+    (display (conc "C> " line "\n") (current-error-port)))
   (display (conc line "\r\n") out))
 (define (hostname->ip-string hostname)
   (let ([iaddr-vector (hostname->ip hostname)])
