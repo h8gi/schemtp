@@ -50,13 +50,7 @@
                           (irregex-replace "\\+" (format-date "~2" date) " +")))
     (update-header! smtp 'Message-ID
                     (conc (date-year date)  "-" (date-second date) "-" (date-nanosecond date)
-                          "@" (host-of smtp)))
-    (update-header! smtp 'Sender
-                    (sender-of smtp))
-    (update-header! smtp 'From
-                    (sender-of smtp))
-    (update-header! smtp 'To
-                    (string-join (receivers-of smtp) ","))
+                          "@" (host-of smtp)))    
     (update-header! smtp 'Content-Type "text/plain; charset=\"UTF-8\"")))
 
 
@@ -79,17 +73,18 @@
        (lambda () (conc "AUTH PLAIN " (base64-encode (current-input-port))))) out)
     (consume-line in)))
 ;;; MAIL
-(define-method (set-sender! (smtp <smtp>) sender) ;export
+(define-method (set-sender! (smtp <smtp>) sender #!optional (name "")) ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
-    (set! (sender-of smtp) sender)
-    (reset-header! smtp)               ;update header
-    (send-line (conc "MAIL FROM:<" sender ">") out)
+    (set! (sender-of smtp) (conc name "<" sender ">"))
+    (update-header! smtp 'Sender (sender-of smtp))
+    (update-header! smtp 'From   (sender-of smtp))
+    (send-line (conc "MAIL FROM:" (sender-of smtp)) out)
     (consume-line in)))
 ;;; RCPT
 (define-method (add-receivers! (smtp <smtp>) (receiver <string>)) ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
     (set! (receivers-of smtp) (cons receiver (receivers-of smtp)))
-    (reset-header! smtp)               ;update header
+    (update-header! smtp 'To (string-join (receivers-of smtp) ","))
     (send-line (conc "RCPT TO:<" receiver ">") out)
     (consume-line in)))
 (define-method (add-receivers! (smtp <smtp>) (receivers <list>))
@@ -101,6 +96,7 @@
     (consume-line in)))
 (define-method (header-send! (smtp <smtp>)) ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
+    (reset-header! smtp)
     (send-line (header->string (header-of smtp)) out)))
 (define-method (data-send! (smtp <smtp>) (str <string>)) ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
@@ -132,6 +128,7 @@
     (cond [(irregex-search '(: (= 3 digit) "-") line)
            (loop (read-line in) (cons (string-drop line 4) methods))]
           [else (cons (string-drop line 4) methods)])))
+
 
 (define (send-line line out)
   (when (debug)
