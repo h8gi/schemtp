@@ -9,7 +9,7 @@ chicken scheme smtp client
 `(make-smtp <address> [<port>] [<tls>]) => <smtp>`   
 make new smtp object. the default port is 25.  
 
-## start-tls
+### start-tls
 `(start-tls <smtp> [ssl/tls-version])`  
 `STARTTLS` method.  
 you can use these symbols.
@@ -37,10 +37,10 @@ set sender of smtp object.
 `(set-header! <smtp> <string> <string>)`  
 you can send this header by `header-send!`.
 
-## smtp-auth
+### smtp-auth
 `(smtp-auth <smtp> address password <auth-type>)`  
 **'plain**  
-**'login**
+**'login**  
 **'cram-md5**
 
 ### start-data
@@ -107,6 +107,8 @@ enable debug mode.
 (quit-session smtp)
 
 ~~~~~
+
+see [./test/test.scm](./test/test.scm)
 
 ## depends
 
