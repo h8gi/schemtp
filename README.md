@@ -96,7 +96,7 @@ enable debug mode.
 ;;; 受信者
 (add-receivers! smtp receivers)
 ;;; heaer
-(set-header! smtp "Subject"ほげあああ")
+(set-header! smtp "Subject" "ほげあああ")
 (set-header! smtp "Replay-To" sender)
 ;;; data
 (start-data smtp)                      ; start
