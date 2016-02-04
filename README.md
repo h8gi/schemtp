@@ -109,4 +109,9 @@ enable debug mode.
 ## non supported method
 auth except plain.
 
-=======
+## depends
+
+I have rewrited openssl and use it. `tcp-ports->ssl-ports`  
+[https://github.com/h8gi/openssl](link)
+
+
