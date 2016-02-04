@@ -30,7 +30,7 @@
         (display (conc "connect: " (hostname->ip-string host) ":" port "\n")
                  (current-error-port))))
     (set! (host-of smtp) host)
-    (consume-lines (in-of smtp))
+    (consume-lines (in-of smtp) 220)
     (ehlo smtp)
     smtp))
 
@@ -74,7 +74,7 @@
 (define-method (start-tls (smtp <smtp>) #!optional (ctx <symbol>))
   (assert-method smtp "STARTTLS")
   (send-line "STARTTLS" (out-of smtp))
-  (consume-lines (in-of smtp))
+  (consume-lines (in-of smtp) 220)
   (receive (i o) (tcp-ports->ssl-ports (in-of smtp) (out-of smtp) 'tlsv1)
     (set! (in-of smtp) i)
     (set! (out-of smtp) o)))
@@ -85,7 +85,7 @@
     (send-line
      (with-input-from-string (conc address "\x00" address "\x00" password)
        (lambda () (conc "AUTH PLAIN " (base64-encode (current-input-port))))) out)
-    (consume-lines in)))
+    (consume-lines in 235 250 334)))
 
 ;;; MAIL
 (define-method (set-sender! (smtp <smtp>) sender #!optional (name "")) ;export
@@ -94,21 +94,21 @@
     (set-header! smtp "Sender" (conc name "<" sender ">"))
     (set-header! smtp "From"   (conc name "<" sender ">"))
     (send-line (conc "MAIL FROM:<" (sender-of smtp) ">") out)
-    (consume-lines in)))
+    (consume-lines in 250)))
 ;;; RCPT
 (define-method (add-receivers! (smtp <smtp>) (receiver <string>)) ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
     (set! (receivers-of smtp) (cons receiver (receivers-of smtp)))
     (set-header! smtp "To" (string-join (receivers-of smtp) ","))
     (send-line (conc "RCPT TO:<" receiver ">") out)
-    (consume-lines in)))
+    (consume-lines in 250 251)))
 (define-method (add-receivers! (smtp <smtp>) (receivers <list>))
   (for-each (cut add-receivers! smtp <>) receivers))
 ;;; DATA
 (define-method (start-data (smtp <smtp>))    ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
     (send-line "DATA" out)
-    (consume-lines in)))
+    (consume-lines in 354)))
 (define-method (send-data-header (smtp <smtp>)) ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
     (reset-header! smtp)
@@ -119,12 +119,12 @@
 (define-method (end-data (smtp <smtp>)) ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
     (send-line "." out)
-    (consume-lines in)))
+    (consume-lines in 250)))
 ;;; QUIT
 (define-method (quit-session (smtp <smtp>))    ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
     (send-line "QUIT" out)
-    (consume-lines in))
+    (consume-lines in 221))
   (close-input-port (in-of smtp))
   (close-output-port (out-of smtp)))
 
@@ -138,13 +138,15 @@
     (cond [(irregex-search '(: (= 3 digit) "-") line)
            (loop (read-line in) (cons (string-drop line 4) methods))]
           [else (cons (string-drop line 4) methods)])))
-(define (consume-lines in)
+(define (consume-lines in . status-list)
   (let loop ([line (read-line in)])
     (when (smtp-debug)
       (display (conc "S< " line "\n") (current-error-port)))
-    (cond [(irregex-search '(: (= 3 digit) "-") line)
+    (cond [(irregex-search '(: bol (= 3 digit) "-") line)
            (loop (read-line in))]
-          [else (string->number (string-take line 3))])))
+          [(member (string->number (string-take line 3)) status-list)
+           => car]
+          [else (error "SMTP ERROR" (string->number (string-take line 3)))])))
 
 (define (send-line line out)
   (when (smtp-debug)
