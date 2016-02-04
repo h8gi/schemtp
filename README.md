@@ -33,12 +33,15 @@ set sender of smtp object.
 `(add-receivers! <smtp> <address>)`  
 `(add-receivers! <smtp> <list-of-address>)`  
 
-### update-header!
-`(update-header! <smtp> <symbol> <string>)`  
+### set-header!
+`(set-header! <smtp> <string> <string>)`  
 you can send this header by `header-send!`.
 
-## auth-plain
-`(auth-plain! <smtp> address password)`  
+## smtp-auth
+`(smtp-auth <smtp> address password <auth-type>)`  
+**'plain**  
+**'login**
+**'cram-md5**
 
 ### start-data
 `(start-data <smtp>)`  
@@ -83,35 +86,31 @@ enable debug mode.
                        "WORLD\n"
                        (random 100) "\n"
                        "こんにちは\n"))
-(debug #t)
 (define smtp (make-smtp host 587))
 ;;; starttls
 (start-tls smtp 'tlsv1)
 ;;; auth
-(auth-plain smtp sender "password")
+(smtp-auth smtp sender "password" 'plain)
 ;;; 送信者
 (set-sender! smtp sender "NAME")
 ;;; 受信者
 (add-receivers! smtp receivers)
 ;;; heaer
-(set-header! smtp 'Subject "ほげあああ")
-(set-header! smtp 'Replay-To sender)
+(set-header! smtp "Subject"ほげあああ")
+(set-header! smtp "Replay-To" sender)
 ;;; data
-(data smtp)                            ; start
-(header-send smtp)                     ; send
-(data-send smtp contents)              ; send
+(start-data smtp)                      ; start
+(data-header-send smtp)                ; send
+(data-body-send smtp contents)         ; send
 (data-end smtp)                        ; end
 ;;; quit
 (quit-session smtp)
 
 ~~~~~
 
-## non supported method
-auth except plain.
-
 ## depends
 
-I have rewrited openssl and use it. `tcp-ports->ssl-ports`  
+I have rewrited openssl and used it. `tcp-ports->ssl-ports`  
 [https://github.com/h8gi/openssl](link)
 
 

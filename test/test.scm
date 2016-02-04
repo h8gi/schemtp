@@ -1,30 +1,52 @@
 (use schemtp)
-(define host "smtp.example.com")
-(define sender "sender@hoge.hoge.com")
-(define receivers
-  '(
-    "rec1@foo.bar.com"
-    "rec2@aaa.bbb.com"
+(define (test #!key host port
+              from (name "")
+              to (header '()) (contents "") file
+              starttls tls auth debug)
+  (smtp-debug debug)
+  (let ([smtp (make-smtp host port tls)])
+    (when starttls
+      (start-tls smtp))
+    (when auth
+      (display (conc "password for " from ": "))
+      (smtp-auth smtp from (read-line) auth))
+    (set-sender! smtp from name)
+    (add-receivers! smtp to)
+    (for-each (lambda (x) (set-header! smtp (car x) (cdr x)))
+              header)
+    (start-data smtp)                            ; start
+    (send-data-header smtp)                     ; send
+    (send-data-body smtp
+                    (if (and file (file-exists? file))
+                        (with-input-from-file file read-all)
+                        ""))
+    (send-data-body smtp contents)
+    (end-data smtp)                        ; end
+    (quit-session smtp)
     ))
-(define contents (conc "HELLO\n"
-                       "WORLD\n"
-                       (random 100) "\n"
-                       "こんにちは\n"))
-(debug #t)
-(define smtp (make-smtp host 587))
-;;; auth
-(auth-plain! smtp sender "password")
-;;; 送信者
-(set-sender! smtp sender)
-;;; 受信者
-(add-receivers! smtp receivers)
-;;; heaer
-(update-header! smtp 'Subject "ほげあああ")
-(update-header! smtp 'Replay-To sender)
-;;; data
-(data! smtp)                            ; start
-(header-send! smtp)                     ; send
-(data-send! smtp contents)              ; send
-(data-end! smtp)                        ; end
-;;; quit
-(quit! smtp)
+
+(test #:host     "smtp.gmail.com"
+      #:port     587
+      #:from     "user@gmail.com"
+      #:name     "なまえ"
+      #:to       "tekitou@dare.sore.com"
+      #:header   '(("Subject" . "こんにちは")
+                   ("Replay-To" . "hoge.example@foo.com"))
+      #:file     "content.txt"
+      #:starttls #t
+      #:auth     'plain
+      #:debug    #t)
+
+(test #:host     "smtp.gmail.com"
+      #:port     465
+      #:from     "user@gmail.com"
+      #:name     "なまえ"
+      #:to       "tekitou@dare.sore.com"
+      #:header   '(("Subject" . "こんにちは")
+                   ("Replay-To" . "hoge.example@foo.com"))
+      #:contents  "HELLO\r\nWORLD\r\nCONTENTS\r\n"
+      #:tls       #t
+      #:auth     'login
+      #:debug    #t)
+
+(exit 0)

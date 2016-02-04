@@ -77,15 +77,41 @@
   (consume-lines (in-of smtp) 220)
   (receive (i o) (tcp-ports->ssl-ports (in-of smtp) (out-of smtp) 'tlsv1)
     (set! (in-of smtp) i)
-    (set! (out-of smtp) o)))
+    (set! (out-of smtp) o))
+  (ehlo smtp))
 
-(define-method (auth-plain (smtp <smtp>) (address <string>) (password <string>)) ;export
-  (assert-method smtp "AUTH.* PLAIN")
-  (receive (in out) (values (in-of smtp) (out-of smtp))
+(define-method (smtp-auth (smtp <smtp>) (address <string>) (password <string>) (method <symbol>))
+  (define (auth-login)
+    (assert-method smtp "AUTH.* LOGIN")
+    (send-line "AUTH LOGIN" (out-of smtp))
+    (consume-lines (in-of smtp) 334)
+    (send-line (base64-encode address) (out-of smtp))
+    (consume-lines (in-of smtp) 334)
+    (send-line (base64-encode password) (out-of smtp))
+    (consume-lines (in-of smtp) 235))
+  (define (auth-plain)
+    (assert-method smtp "AUTH.* PLAIN")
     (send-line
      (with-input-from-string (conc address "\x00" address "\x00" password)
-       (lambda () (conc "AUTH PLAIN " (base64-encode (current-input-port))))) out)
-    (consume-lines in 235 250 334)))
+       (lambda () (conc "AUTH PLAIN " (base64-encode (current-input-port))))) (out-of smtp))
+    (consume-lines (in-of smtp) 235 250 334))
+  (define (auth-cram-md5)
+    (assert-method smtp "AUTH.* CRAM-MD5")
+    (send-line "AUTH CRAM-MD5" (out-of smtp))
+    (let ([timestamp (cdr (consume-lines (in-of smtp) 334))])
+      (send-line
+       (base64-encode
+        (conc address " "
+              (string-join (map (compose (cut fill-string <> 2) (cut number->string <> 16) char->integer)
+                                (string->list ((hmac password (md5-primitive))
+                                               (base64-decode timestamp))))
+                           "")))
+       (out-of smtp))
+      (consume-lines (in-of smtp) 235)))
+  (cond [(eq? method 'plain) (auth-plain)]
+        [(eq? method 'login) (auth-login)]
+        [(eq? method 'cram-md5) (auth-cram-md5)]
+        [else (error "no such login form" method)]))
 
 ;;; MAIL
 (define-method (set-sender! (smtp <smtp>) sender #!optional (name "")) ;export
@@ -145,16 +171,26 @@
     (cond [(irregex-search '(: bol (= 3 digit) "-") line)
            (loop (read-line in))]
           [(member (string->number (string-take line 3)) status-list)
-           => car]
+           => (lambda (x) (cons (car x) (string-drop line 4)))]
           [else (error "SMTP ERROR" (string->number (string-take line 3)))])))
 
 (define (send-line line out)
   (when (smtp-debug)
     (display (conc "C> " line "\n") (current-error-port)))
   (display (conc line "\r\n") out))
+
 (define (hostname->ip-string hostname)
   (let ([iaddr-vector (hostname->ip hostname)])
     (if iaddr-vector
         (string-join (map ->string (u8vector->list iaddr-vector))
                      ".")
         (error "not exist" hostname))))
+(define (fill-string str limit #!key (fill #\0) (right? #f))
+  (let ([dif (- limit (string-length str))])
+    (if (>= dif 0)
+        (if right?
+            (string-append str (make-string dif fill))
+            (string-append (make-string dif fill) str))
+        (if right?
+            (string-take str limit)
+            (string-drop str (abs dif))))))
