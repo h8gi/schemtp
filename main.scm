@@ -31,8 +31,7 @@
                  (current-error-port))))
     (set! (host-of smtp) host)
     (consume-lines (in-of smtp))
-    (send-line "EHLO localhost" (out-of smtp))
-    (set! (methods-of smtp) (get-methods (in-of smtp)))
+    (ehlo smtp)
     smtp))
 
 (define-method (set-header! (smtp <smtp>) (key <symbol>) (value <string>)) ;export
@@ -45,7 +44,7 @@
                        (string-upcase (irregex-match-substring m)))))
   (let ([date (time->date (current-time))])
     (set-header! smtp 'Date
-                    (conc (capitalize (format-date "~a, ~d " date))
+                 (conc (capitalize (format-date "~a, ~d " date))
                           (capitalize (format-date "~b " date))
                           (format-date "~Y " date)
                           (irregex-replace "\\+" (format-date "~2" date) " +")))
@@ -67,12 +66,29 @@
   (display (header->string (header-of smtp))))
 (define-method (show-methods (smtp <smtp>)) ;export
   (for-each pp (methods-of smtp)))
-(define-method (auth-plain! (smtp <smtp>) (address <string>) (password <string>)) ;export
+(define-method (assert-method (smtp <smtp>) (method <string>))
+  (if (filter (cut irregex-search method <>) (methods-of smtp))
+      #t
+      (error "non-supported method" method)))
+(define-method (ehlo (smtp <smtp>))
+  (send-line "EHLO localhost" (out-of smtp))
+  (set! (methods-of smtp) (get-methods (in-of smtp))))
+(define-method (start-tls (smtp <smtp>) #!optional (ctx <symbol>))
+  (assert-method smtp "STARTTLS")
+  (send-line "STARTTLS" (out-of smtp))
+  (consume-lines (in-of smtp))
+  (receive (i o) (tcp-ports->ssl-ports (in-of smtp) (out-of smtp) 'tlsv1)
+    (set! (in-of smtp) i)
+    (set! (out-of smtp) o)))
+
+(define-method (auth-plain (smtp <smtp>) (address <string>) (password <string>)) ;export
+  (assert-method smtp "AUTH.* PLAIN")
   (receive (in out) (values (in-of smtp) (out-of smtp))
     (send-line
      (with-input-from-string (conc address "\x00" address "\x00" password)
        (lambda () (conc "AUTH PLAIN " (base64-encode (current-input-port))))) out)
     (consume-lines in)))
+
 ;;; MAIL
 (define-method (set-sender! (smtp <smtp>) sender #!optional (name "")) ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
@@ -91,23 +107,23 @@
 (define-method (add-receivers! (smtp <smtp>) (receivers <list>))
   (for-each (cut add-receivers! smtp <>) receivers))
 ;;; DATA
-(define-method (data! (smtp <smtp>))    ;export
+(define-method (data (smtp <smtp>))    ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
     (send-line "DATA" out)
     (consume-lines in)))
-(define-method (send-header! (smtp <smtp>)) ;export
+(define-method (send-header (smtp <smtp>)) ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
     (reset-header! smtp)
     (send-line (header->string (header-of smtp)) out)))
-(define-method (send-data! (smtp <smtp>) (str <string>)) ;export
+(define-method (send-data (smtp <smtp>) (str <string>)) ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
     (send-line str out)))
-(define-method (end-data! (smtp <smtp>)) ;export
+(define-method (end-data (smtp <smtp>)) ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
     (send-line "." out)
     (consume-lines in)))
 ;;; QUIT
-(define-method (quit! (smtp <smtp>))    ;export
+(define-method (quit-session (smtp <smtp>))    ;export
   (receive (in out) (values (in-of smtp) (out-of smtp))
     (send-line "QUIT" out)
     (consume-lines in))

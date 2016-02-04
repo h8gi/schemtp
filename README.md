@@ -8,10 +8,25 @@ chicken scheme smtp client
 
 `(make-smtp <address> [<port>] [<tls>]) => <smtp>`   
 make new smtp object. the default port is 25.  
-to use gmail, `(make-smtp "smgp.gmail.com" 465 #t)`.  
+
+## start-tls
+`(start-tls <smtp> [ssl/tls-version])`  
+`STARTTLS` method.  
+you can use these symbols.
+
+**'sslv2-or-v3**  
+TLS protocol or SSL protocol versions 2 or 3, as appropriate  
+**'sslv3**  
+SSL protocol version 3  
+**'tls or 'tlsv1**  
+the TLS protocol version 1  
+**'tlsv11**  
+the TLS protocol version 1.1  
+**'tlsv12**  
+the TLS protocol version 1.2  
 
 ### set-sender!
-`(set-sender! <smtp> <address>)`  
+`(set-sender! <smtp> <address> [<name>])`  
 set sender of smtp object.
 
 ### add-receivers!
@@ -22,26 +37,26 @@ set sender of smtp object.
 `(update-header! <smtp> <symbol> <string>)`  
 you can send this header by `header-send!`.
 
-## auth-plain!
+## auth-plain
 `(auth-plain! <smtp> address password)`  
 
-### data!
+### data
 `(data! <smtp>)`  
 start data method. 
 
-### header-send!
+### header-send
 `(header-send! smtp)`  
 use after `data!`.
 
-### data-send!
+### data-send
 `(data-send! smtp <string>)`  
 use after `header-send!`.
 
-### data-end!
+### data-end
 `(data-end! <smtp>)`  
 end data method.
 
-### quit!
+### quit-session
 `(quit! smtp)`  
 quit smtp process.
 
@@ -70,23 +85,24 @@ enable debug mode.
                        "こんにちは\n"))
 (debug #t)
 (define smtp (make-smtp host 587))
+;;; starttls
+(start-tls smtp 'tlsv1)
 ;;; auth
-(auth-plain! smtp sender "password")
+(auth-plain smtp sender "password")
 ;;; 送信者
-(set-sender! smtp sender)
+(set-sender! smtp sender "NAME")
 ;;; 受信者
 (add-receivers! smtp receivers)
 ;;; heaer
-(update-header! smtp 'Subject "ほげあああ")
-(update-header! smtp 'Replay-To sender)
+(set-header! smtp 'Subject "ほげあああ")
+(set-header! smtp 'Replay-To sender)
 ;;; data
-(data! smtp)                            ; start
-(header-send! smtp)                     ; send
-(data-send! smtp contents)              ; send
-(data-end! smtp)                        ; end
+(data smtp)                            ; start
+(header-send smtp)                     ; send
+(data-send smtp contents)              ; send
+(data-end smtp)                        ; end
 ;;; quit
-(quit! smtp)
-
+(quit-session smtp)
 
 ~~~~~
 
