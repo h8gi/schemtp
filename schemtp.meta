@@ -2,5 +2,5 @@
 ((author "yagihiroki")
  (synopsis "schemtp")
  (license "GPLv3")
- (depends coops coops-utils coops-utils srfi-19 base64 openssl)
- (files "main.scm" "schemtp.scm" "schemtp.setup" "schemtp.meta"))
+ (depends coops coops-utils coops-utils srfi-19 base64 openssl md5 hmac hostinfo)
+ (files "main.scm" "my-ssl.scm" "schemtp.scm" "schemtp.setup" "schemtp.meta"))

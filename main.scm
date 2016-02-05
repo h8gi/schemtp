@@ -100,12 +100,7 @@
     (send-line "AUTH CRAM-MD5" (out-of smtp))
     (let ([timestamp (cdr (consume-lines (in-of smtp) 334))])
       (send-line
-       (base64-encode
-        (conc address " "
-              (string-join (map (compose (cut fill-string <> 2) (cut number->string <> 16) char->integer)
-                                (string->list ((hmac password (md5-primitive))
-                                               (base64-decode timestamp))))
-                           "")))
+       (md5-sub timestamp address password)
        (out-of smtp))
       (consume-lines (in-of smtp) 235)))
   (cond [(eq? method 'plain) (auth-plain)]
@@ -194,3 +189,14 @@
         (if right?
             (string-take str limit)
             (string-drop str (abs dif))))))
+
+(define (md5-sub timestamp user password)
+  (let* ([hmac-md5 (hmac password (md5-primitive))]
+         [time     (base64-decode timestamp)]
+         [str      (hmac-md5 time)]
+         [str16    (string-join (map (compose (cut fill-string <> 2) (cut number->string <> 16) char->integer)
+                                     (string->list str))
+                                "")]
+         [struser  (conc user " " str16)]
+         [last     (base64-encode struser)])    
+    last))

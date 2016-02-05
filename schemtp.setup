@@ -1,7 +1,10 @@
 ;;; schemtp.setup
 
 ;;; コンパイル
-(compile -s -O3 -d1 "schemtp.scm" -j schemtp)
+
+;(compile -s -O3 -d0 "my-ssl.scm" -lssl -lcrypto)
+
+(compile -s -O3 -d1 "schemtp.scm" -lssl -lcrypto -j schemtp)
 (compile -s -O3 -d0 "schemtp.import.scm")
 
 ;;; インストール

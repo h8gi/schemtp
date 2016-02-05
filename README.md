@@ -112,7 +112,4 @@ see [./test/test.scm](./test/test.scm)
 
 ## depends
 
-I have rewrited openssl and used it. `tcp-ports->ssl-ports`  
-[https://github.com/h8gi/openssl](link)
-
 
