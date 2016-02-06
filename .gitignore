@@ -1,0 +1,7 @@
+*~
+*.so
+*.html
+*.import.scm
+test/test
+test/secret.scm
+test/hoge.scm
