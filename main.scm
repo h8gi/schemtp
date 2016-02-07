@@ -27,7 +27,8 @@
       (set! (in-of smtp) i)
       (set! (out-of smtp) o)
       (when (smtp-debug)
-        (display (conc "connect: " (hostname->ip-string host) ":" port "\n")
+        (display (conc "connect: " (ip->string
+                                    (hostname->ip host)) ":" port "\n")
                  (current-error-port))))
     (set! (host-of smtp) host)
     (consume-lines (in-of smtp) 220)
@@ -174,12 +175,6 @@
     (display (conc "C> " line "\n") (current-error-port)))
   (display (conc line "\r\n") out))
 
-(define (hostname->ip-string hostname)
-  (let ([iaddr-vector (hostname->ip hostname)])
-    (if iaddr-vector
-        (string-join (map ->string (u8vector->list iaddr-vector))
-                     ".")
-        (error "not exist" hostname))))
 (define (fill-string str limit #!key (fill #\0) (right? #f))
   (let ([dif (- limit (string-length str))])
     (if (>= dif 0)
