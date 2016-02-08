@@ -100,8 +100,8 @@ enable debug mode.
 (set-header! smtp "Replay-To" sender)
 ;;; data
 (start-data smtp)                      ; start
-(data-header-send smtp)                ; send
-(data-body-send smtp contents)         ; send
+(send-data-header smtp)                ; send
+(send-data-body smtp contents)         ; send
 (data-end smtp)                        ; end
 ;;; quit
 (quit-session smtp)
