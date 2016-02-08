@@ -195,3 +195,42 @@
          [struser  (conc user " " str16)]
          [last     (base64-encode struser)])    
     last))
+
+
+;;; main???
+(define (send-mail #!key
+                   host port
+                   from
+                   (name "")
+                   to
+                   (header '())
+                   (contents "")
+                   file
+                   starttls
+                   tls
+                   (auth 'plain)
+                   password
+                   debug)
+  (smtp-debug debug)
+  (let ([smtp (make-smtp host port tls)])
+    (when starttls
+      (start-tls smtp))
+    (when auth
+      (unless password
+        (display (conc "password for " from ": "))
+        (set! password (read-line)))
+      (smtp-auth smtp from password auth))
+    (set-sender! smtp from name)
+    (add-receivers! smtp to)
+    (for-each (lambda (x) (set-header! smtp (car x) (cdr x)))
+              header)
+    (start-data smtp)                   ; start
+    (send-data-header smtp)             ; send
+    (send-data-body smtp
+                    (if (and file (file-exists? file))
+                        (with-input-from-file file read-all)
+                        ""))
+    (send-data-body smtp contents)
+    (end-data smtp)                     ; end
+    (quit-session smtp)
+    ))

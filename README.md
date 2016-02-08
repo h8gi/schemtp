@@ -71,6 +71,10 @@ quit smtp process.
 `(smtp-debug <boolean>)`  
 enable debug mode.
 
+### send-mail
+
+see [./test/test.scm](./test/test.scm)
+
 ## example
 
 ~~~~~{.scheme}
@@ -107,8 +111,6 @@ enable debug mode.
 (quit-session smtp)
 
 ~~~~~
-
-see [./test/test.scm](./test/test.scm)
 
 ## depends
 
